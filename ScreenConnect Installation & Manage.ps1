@@ -11,17 +11,16 @@
 
 Import-Module $env:SyncroModule
 
-# Convert spaces to %20
-$CompanyName = $CompanyName.replace(' ','%20')
-
-$FriendlyName = $FriendlyName.replace(' ','%20')
-
-# URL for ScreenConnect msi download
-# Edit this URL to include variables: $FriendlyName & $CompanyName (Variables should go near the end of the URL)(this is to set the company name & asset friendly name in the screenconnect portal)
-$url = "https://bullertech.screenconnect.com/Bin/ConnectWiseControl.ClientSetup.msi?h=instance-a3so5x-relay.screenconnect.com&p=443&k=BgIAAACkAABSU0ExAAgAAAEAAQB5QXGO2JuPFsEZNWRKUJ2FspbU%2Fwv4BGoj5TW16R3gLHtFgvR6vvHJLfVyvW6SwEbdbi5pRZQneyYHkd9V%2F71nG1X4YcO94LS5DxgYHtLeJH0OmP0mrXWfoRTPGGJ4VnnkdG4skpQ59RHm8TBxpo5AgScL8PQf3id9AJ2KUwUQFDfNqwIzRvTfwOeX5TxKFL8%2Fo2V1SO%2Flx8rLVYXm37388PSdl0OlIqbSE0pYQmOXpdGo7CsHK8125UMByqiOXV2awA9JvMBn5eu6wHEaRucjS000x9D5Q0xKIvsRiuT3nmwbWn56v3W2jTfFkhF5jLU%2FT1uwSrorqWMKF9Xypq2u&e=Access&y=Guest&t=$FriendlyName&c=$CompanyName&c=&c=&c=&c=&c=&c=&c="
+# Properly encode URL parameters
+$EncodedCompanyName = [uri]::EscapeDataString($CompanyName)
+$EncodedFriendlyName = [uri]::EscapeDataString($FriendlyName)
 
 # URL for your screenconnect instance, you can customize the port or leave it off
 $scdomain = "bullertech.screenconnect.com"
+
+# URL for ScreenConnect msi download
+# Edit this URL to include variables: $FriendlyName & $CompanyName (Variables should go near the end of the URL)(this is to set the company name & asset friendly name in the screenconnect portal)
+$url = "https://$scdomain/Bin/ScreenConnect.ClientSetup.msi?e=Access&y=Guest&c=$EncodedFriendlyName&c=$EncodedCompanyName&c=&c=True&c=&c=&c=&c="
 
 # put your instance string here find in add/remove programs
 $scinstance = "c4d53e2bd6ff64ec"
@@ -31,9 +30,6 @@ $serviceName = "ScreenConnect Client ($scinstance)"
 
 # Your syncro subdomain
 $subdomain = "bullertech"
-
-# Your email (for the ticket submission)
-$yourEmail = "support@bullertech.com"
 
 If (Get-Service $serviceName -ErrorAction SilentlyContinue) {
    If ((Get-Service $serviceName).Status -eq 'Running') {
@@ -60,38 +56,10 @@ If (Get-Service $serviceName -ErrorAction SilentlyContinue) {
         }
    }
 } Else {
-   #$ticket = Create-Syncro-Ticket -Subdomain $subdomain -Subject "ScreenConnect needs installed on $env:computername" -IssueType "Automated" -Status "New"
-       
    Write-Host "$serviceName not found - need to install"
    (new-object System.Net.WebClient).DownloadFile($url,'C:\windows\temp\sc.msi')
    msiexec.exe /i c:\windows\temp\sc.msi /quiet
-   #$startAt = (Get-Date).AddMinutes(-30).toString("o")
-   #Create-Syncro-Ticket-TimerEntry -Subdomain $subdomain -TicketIdOrNumber $ticket.ticket.id -StartTime $startAt -DurationMinutes 5 -Notes "Automated system cleaned up the disk space." -UserIdOrEmail $yourEmail
-
 }
-
-#Get the Screenconnect URL and write to Syncro asset.
-$Keys = Get-ChildItem HKLM:\System\ControlSet001\Services
-$Guid = "Null";
-$Items = $Keys | Foreach-Object {Get-ItemProperty $_.PsPath }
-
-    ForEach ($Item in $Items)
-    {
-        if ($item.PSChildName -like "*ScreenConnect Client*")
-    {
-    $SubKeyName = $Item.PSChildName
-    $Guid = (Get-ItemProperty "HKLM:\SYSTEM\ControlSet001\Services\$SubKeyName").ImagePath
-    }
-}
-
-$GuidParser1 = $Guid -split "&s="
-$GuidParser2 = $GuidParser1[1] -split "&k="
-$Guid = $GuidParser2[0]
-$ScreenConnectUrl = "https://$scdomain/Host#Access/All%20Machines//$Guid/Join"
-
-Write-Host ScreenConnect URL Is: $ScreenConnectUrl
-
-Set-Asset-Field -Subdomain $subdomain -Name "Screenconnect" -Value $ScreenConnectUrl
 
 Start-Sleep -Seconds 10
 
@@ -101,5 +69,7 @@ $Regex = [Regex]::new("(?<=s=)(.*?)(?=&)")
 $Match = $Regex.Match($val)
 if($Match.Success)
 {
-Set-Asset-Field -Subdomain $subdomain -Name "ScreenConnect GUID" -Value $Match
+   Set-Asset-Field -Subdomain $subdomain -Name "ScreenConnect GUID" -Value $Match
+   $ScreenConnectUrl = "https://$scdomain/Host#Access/All%20Machines//$Match/Join"
+   Write-Host ScreenConnect URL Is: $ScreenConnectUrl
 }

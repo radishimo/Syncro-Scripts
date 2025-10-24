@@ -69,5 +69,7 @@ $Regex = [Regex]::new("(?<=s=)(.*?)(?=&)")
 $Match = $Regex.Match($val)
 if($Match.Success)
 {
-Set-Asset-Field -Subdomain $subdomain -Name "ScreenConnect GUID" -Value $Match
+    Set-Asset-Field -Subdomain $subdomain -Name "ScreenConnect GUID" -Value $Match
+    $ScreenConnectUrl = "https://$scdomain/Host#Access/All%20Machines//$Match/Join"
+    Write-Host ScreenConnect URL Is: $ScreenConnectUrl
 }
