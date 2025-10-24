@@ -46,7 +46,21 @@ If (Get-Service $serviceName -ErrorAction SilentlyContinue) {
            Write-Host "$serviceName started after manual start commant, now performing syncro GUID match."
         } Else {
             Write-Host "$serviceName not responding to start commant, performing uninstall and fresh install, then performing syncro GUID match."
-            cmd.exe /c 'wmic product where name="ScreenConnect Client (c4d53e2bd6ff64ec)" call uninstall /nointeractive'
+            # Use modern PowerShell method to uninstall ScreenConnect
+            try {
+                $product = Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -like "*ScreenConnect Client*" -and $_.Name -like "*$scinstance*" }
+                if ($product) {
+                    Write-Host "Uninstalling existing ScreenConnect installation..."
+                    $result = $product.Uninstall()
+                    if ($result.ReturnValue -eq 0) {
+                        Write-Host "Successfully uninstalled existing ScreenConnect installation"
+                    } else {
+                        Write-Host "Warning: Uninstall returned error code: $($result.ReturnValue)"
+                    }
+                }
+            } catch {
+                Write-Host "Warning: Failed to uninstall existing installation: $($_.Exception.Message)"
+            }
             
             Write-Host "$serviceName not found - need to install"
             (new-object System.Net.WebClient).DownloadFile($url,'C:\windows\temp\sc.msi')
