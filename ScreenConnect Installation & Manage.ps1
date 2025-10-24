@@ -20,7 +20,7 @@ $scdomain = "bullertech.screenconnect.com"
 
 # URL for ScreenConnect msi download
 # Edit this URL to include variables: $FriendlyName & $CompanyName (Variables should go near the end of the URL)(this is to set the company name & asset friendly name in the screenconnect portal)
-$url = "https://$scdomain/Bin/ScreenConnect.ClientSetup.msi?e=Access&y=Guest&c=$EncodedFriendlyName&c=$EncodedCompanyName&c=&c=&c=&c=&c=&c="
+$url = "https://$scdomain/Bin/ScreenConnect.ClientSetup.msi?e=Access&y=Guest&t=$EncodedFriendlyName&c=$EncodedCompanyName"
 
 # put your instance string here find in add/remove programs
 $scinstance = "c4d53e2bd6ff64ec"
