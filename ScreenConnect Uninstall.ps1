@@ -2,7 +2,7 @@
 # This script uses modern PowerShell methods to uninstall ScreenConnect
 
 $scinstance = "c4d53e2bd6ff64ec"
-$serviceName = "ScreenConnect Client ($scinstance)"
+$uninstallSuccess = $false
 
 Write-Host "Starting ScreenConnect uninstall process..."
 
@@ -13,6 +13,7 @@ try {
     if ($package) {
         Uninstall-Package -Name $package.Name -Force -ErrorAction Stop
         Write-Host "Successfully uninstalled using PowerShell Package Management"
+        $uninstallSuccess = $true
         exit 0
     }
 } catch {
@@ -28,6 +29,7 @@ try {
         $result = $product.Uninstall()
         if ($result.ReturnValue -eq 0) {
             Write-Host "Successfully uninstalled using WMI"
+            $uninstallSuccess = $true
             exit 0
         } else {
             Write-Host "WMI uninstall returned error code: $($result.ReturnValue)"
@@ -49,6 +51,7 @@ try {
             $result = $product.Uninstall()
             if ($result.ReturnValue -eq 0) {
                 Write-Host "Successfully uninstalled using MSI product code"
+                $uninstallSuccess = $true
                 exit 0
             }
         }
@@ -77,6 +80,7 @@ try {
                 Write-Host "Running: $uninstaller $uninstallArgs"
                 Start-Process -FilePath $uninstaller -ArgumentList $uninstallArgs -Wait -NoNewWindow
                 Write-Host "Registry-based uninstall completed"
+                $uninstallSuccess = $true
                 exit 0
             }
         }
@@ -85,35 +89,8 @@ try {
     Write-Host "Registry-based method failed: $($_.Exception.Message)"
 }
 
-# Method 5: Stop and remove service, then clean up files
-try {
-    Write-Host "Attempting service-based cleanup..."
-    if (Get-Service $serviceName -ErrorAction SilentlyContinue) {
-        Write-Host "Stopping ScreenConnect service..."
-        Stop-Service $serviceName -Force -ErrorAction SilentlyContinue
-        Write-Host "Removing ScreenConnect service..."
-        sc.exe delete $serviceName
-    }
-    
-    # Clean up common ScreenConnect installation directories
-    $installPaths = @(
-        "${env:ProgramFiles}\ScreenConnect Client ($scinstance)",
-        "${env:ProgramFiles(x86)}\ScreenConnect Client ($scinstance)",
-        "${env:LOCALAPPDATA}\ScreenConnect",
-        "${env:APPDATA}\ScreenConnect"
-    )
-    
-    foreach ($path in $installPaths) {
-        if (Test-Path $path) {
-            Write-Host "Removing directory: $path"
-            Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-    
-    Write-Host "Service-based cleanup completed"
-} catch {
-    Write-Host "Service-based cleanup failed: $($_.Exception.Message)"
+# Only show failure messages if no method succeeded
+if (-not $uninstallSuccess) {
+    Write-Host "ScreenConnect uninstall process completed, but no method succeeded."
+    Write-Host "Please verify the installation has been removed. If ScreenConnect is still present, manual removal may be required."
 }
-
-Write-Host "ScreenConnect uninstall process completed. Please verify the installation has been removed."
-Write-Host "If ScreenConnect is still present, manual removal may be required."
