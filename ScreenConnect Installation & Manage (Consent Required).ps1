@@ -19,7 +19,8 @@ $EncodedFriendlyName = [uri]::EscapeDataString($FriendlyName)
 $scdomain = "bullertech.screenconnect.com"
 
 # URL for ScreenConnect msi download
-# Edit this URL to include variables: $FriendlyName & $CompanyName (Variables should go near the end of the URL)(this is to set the company name & asset friendly name in the screenconnect portal)
+# This is the URL for the ScreenConnect msi download. It includes the encoded company name and friendly name.
+# The Fifth parameter is True, which means the user will be prompted for consent.
 $url = "https://$scdomain/Bin/ScreenConnect.ClientSetup.msi?e=Access&y=Guest&t=$EncodedFriendlyName&c=$EncodedCompanyName&c=&c=&c=True&c=&c=&c=&c="
 
 # put your instance string here find in add/remove programs
