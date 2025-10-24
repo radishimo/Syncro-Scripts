@@ -1,10 +1,13 @@
 # ScreenConnect Uninstall Script - Windows 11 Compatible
 # This script uses modern PowerShell methods to uninstall ScreenConnect
 
-$scinstance = "c4d53e2bd6ff64ec"
+# Configuration Variables - Update these for your environment
+$scinstance = "c4d53e2bd6ff64ec"            # Your ScreenConnect instance ID (found in Add/Remove Programs)
+
 $uninstallSuccess = $false
 
 Write-Host "Starting ScreenConnect uninstall process..."
+Write-Host "Looking for ScreenConnect instance: $scinstance"
 
 # Method 1: Try using Get-Package and Uninstall-Package (PowerShell 5.1+)
 try {

@@ -1,7 +1,7 @@
 # This is an amalgamation of Steven Grabowski's & Sam James' scripts. Thanks Steven & Sam!
 
 # This will deploy Screenconnect to your Syncro asset also enabling syncro integration.
-#   It will set the asset friendly name and company name from syncro in your screenconnect portal. (currently, the official syncro integration dosn't do this)
+#   It will set the asset friendly name and company name from syncro in your screenconnect portal. (currently, the official syncro integration doesn't do this)
 #   It will integrate screenconnect with syncro to allow starting a remote session from the Syncro asset page. (Just like the official integration)
 
 # When creating this in syncro, create two Syncro platform variables...
@@ -11,26 +11,22 @@
 
 Import-Module $env:SyncroModule
 
+# Configuration Variables - Update these for your environment
+$scdomain = "bullertech.screenconnect.com"  # Your ScreenConnect domain
+$scinstance = "c4d53e2bd6ff64ec"            # Your ScreenConnect instance ID (found in Add/Remove Programs)
+$subdomain = "bullertech"                   # Your Syncro subdomain
+
 # Properly encode URL parameters
 $EncodedCompanyName = [uri]::EscapeDataString($CompanyName)
 $EncodedFriendlyName = [uri]::EscapeDataString($FriendlyName)
 
-# URL for your screenconnect instance, you can customize the port or leave it off
-$scdomain = "bullertech.screenconnect.com"
-
 # URL for ScreenConnect msi download
 # This is the URL for the ScreenConnect msi download. It includes the encoded company name and friendly name.
 # The Fifth parameter is True, which means the user will be prompted for consent.
-$url = "https://$scdomain/Bin/ScreenConnect.ClientSetup.msi?e=Access&y=Guest&t=$EncodedFriendlyName&c=$EncodedCompanyName&c=&c=&c=True&c=&c=&c=&c="
+$url = "https://$scdomain/Bin/ScreenConnect.ClientSetup.msi?e=Access&y=Guest&t=$EncodedFriendlyName&c=$EncodedCompanyName&c=True"
 
-# put your instance string here find in add/remove programs
-$scinstance = "c4d53e2bd6ff64ec"
-
-# put your instance string here find in add/remove programs
+# Service name for ScreenConnect client
 $serviceName = "ScreenConnect Client ($scinstance)"
-
-# Your syncro subdomain
-$subdomain = "bullertech"
 
 If (Get-Service $serviceName -ErrorAction SilentlyContinue) {
    If ((Get-Service $serviceName).Status -eq 'Running') {
@@ -44,9 +40,9 @@ If (Get-Service $serviceName -ErrorAction SilentlyContinue) {
        #Create-Syncro-Ticket-TimerEntry -Subdomain $subdomain -TicketIdOrNumber $ticket.ticket.id -StartTime $startAt -DurationMinutes 5 -Notes "Automated system cleaned up the disk space." -UserIdOrEmail $yourEmail
         
         If ((Get-Service $serviceName).Status -eq 'Running') {
-           Write-Host "$serviceName started after manual start commant, now performing syncro GUID match."
+           Write-Host "$serviceName started after manual start command, now performing syncro GUID match."
         } Else {
-            Write-Host "$serviceName not responding to start commant, performing uninstall and fresh install, then performing syncro GUID match."
+            Write-Host "$serviceName not responding to start command, performing uninstall and fresh install, then performing syncro GUID match."
             # Comprehensive ScreenConnect uninstall using multiple methods
             Write-Host "Performing comprehensive ScreenConnect uninstall..."
             
@@ -149,27 +145,65 @@ If (Get-Service $serviceName -ErrorAction SilentlyContinue) {
             Write-Host "Uninstall process completed, proceeding with fresh install..."
             
             Write-Host "$serviceName not found - need to install"
-            (new-object System.Net.WebClient).DownloadFile($url,'C:\windows\temp\sc.msi')
-            msiexec.exe /i c:\windows\temp\sc.msi /quiet
-            Write-Host "$serviceName install command sent."
+            try {
+                Write-Host "Downloading ScreenConnect installer..."
+                (new-object System.Net.WebClient).DownloadFile($url,'C:\windows\temp\sc.msi')
+                Write-Host "Installing ScreenConnect..."
+                $installResult = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i c:\windows\temp\sc.msi /quiet" -Wait -PassThru
+                if ($installResult.ExitCode -eq 0) {
+                    Write-Host "$serviceName installed successfully."
+                } else {
+                    Write-Host "Installation failed with exit code: $($installResult.ExitCode)"
+                }
+            } catch {
+                Write-Host "Error during installation: $($_.Exception.Message)"
+            } finally {
+                # Clean up temporary file
+                if (Test-Path 'C:\windows\temp\sc.msi') {
+                    Remove-Item 'C:\windows\temp\sc.msi' -Force -ErrorAction SilentlyContinue
+                }
+            }
             
         }
    }
 } Else {
    Write-Host "$serviceName not found - need to install"
-   (new-object System.Net.WebClient).DownloadFile($url,'C:\windows\temp\sc.msi')
-   msiexec.exe /i c:\windows\temp\sc.msi /quiet
+   try {
+       Write-Host "Downloading ScreenConnect installer..."
+       (new-object System.Net.WebClient).DownloadFile($url,'C:\windows\temp\sc.msi')
+       Write-Host "Installing ScreenConnect..."
+       $installResult = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i c:\windows\temp\sc.msi /quiet" -Wait -PassThru
+       if ($installResult.ExitCode -eq 0) {
+           Write-Host "$serviceName installed successfully."
+       } else {
+           Write-Host "Installation failed with exit code: $($installResult.ExitCode)"
+       }
+   } catch {
+       Write-Host "Error during installation: $($_.Exception.Message)"
+   } finally {
+       # Clean up temporary file
+       if (Test-Path 'C:\windows\temp\sc.msi') {
+           Remove-Item 'C:\windows\temp\sc.msi' -Force -ErrorAction SilentlyContinue
+       }
+   }
 }
 
 Start-Sleep -Seconds 10
 
 #Get the Screenconnect GUID and write to Syncro asset.
-$val = (Get-ItemProperty -path "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName").ImagePath
-$Regex = [Regex]::new("(?<=s=)(.*?)(?=&)")
-$Match = $Regex.Match($val)
-if($Match.Success)
-{
-    Set-Asset-Field -Subdomain $subdomain -Name "ScreenConnect GUID" -Value $Match
-    $ScreenConnectUrl = "https://$scdomain/Host#Access/All%20Machines//$Match/Join"
-    Write-Host ScreenConnect URL Is: $ScreenConnectUrl
+try {
+    $val = (Get-ItemProperty -path "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName").ImagePath
+    $Regex = [Regex]::new("(?<=s=)(.*?)(?=&)")
+    $Match = $Regex.Match($val)
+    if($Match.Success) {
+        Set-Asset-Field -Subdomain $subdomain -Name "ScreenConnect GUID" -Value $Match
+        $ScreenConnectUrl = "https://$scdomain/Host#Access/All%20Machines//$Match/Join"
+        Write-Host "ScreenConnect URL Is: $ScreenConnectUrl"
+        Write-Host "ScreenConnect installation and configuration completed successfully."
+    } else {
+        Write-Host "Warning: Could not extract ScreenConnect GUID from service configuration."
+        Write-Host "Service ImagePath: $val"
+    }
+} catch {
+    Write-Host "Error extracting ScreenConnect GUID: $($_.Exception.Message)"
 }
