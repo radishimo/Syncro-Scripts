@@ -1,0 +1,1 @@
+cmd.exe /c 'wmic product where name="ScreenConnect Client (c4d53e2bd6ff64ec)" call uninstall /nointeractive'
